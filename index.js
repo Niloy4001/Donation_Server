@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 var jwt = require("jsonwebtoken");
 var cookieParser = require("cookie-parser");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 // const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 // const stripe = require("stripe")(process.env.STRIPE_SECRETE_KEY);
@@ -49,6 +50,8 @@ async function run() {
   try {
     // users collection
     const usersCollection = client.db("Donation").collection("usersCollection");
+    const eventsCollection = client.db("Donation").collection("eventsCollection");
+    const paymentsCollection = client.db("Donation").collection("paymentsCollection");
 
 
     // payments details collection
@@ -119,67 +122,40 @@ async function run() {
       // console.log(result);
     });
 
+
+
+    // get all events data 
+    app.get("/events", async(req,res)=>{
+        const result = await eventsCollection.find().toArray()
+        res.send(result)
+    })
     
 
-    // payment intent
-    // app.post(
-    //   "/create-payment-intent",
-    //   verifyToken,
-    //   verifyMember,
-    //   async (req, res) => {
-    //     const { price, discount } = req.body;
-    //     const amount = parseInt(price * 100);
 
-    //     if (discount) {
-    //       const finalAmount = parseInt(amount - amount * (discount / 100));
+    // Stripe Payment API Route
+app.post("/create-payment-intent", async (req, res) => {
+    try {
+      const { amount } = req.body; // Amount in cents (100 cents = $1)
+  
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount * 100, // Convert dollars to cents
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+  
+      res.send({ clientSecret: paymentIntent.client_secret });
+    } catch (error) {
+      res.status(500).send({ error: error.message });
+    }
+  });
 
-    //       const paymentIntent = await stripe.paymentIntents.create({
-    //         amount: finalAmount,
-    //         currency: "usd",
-    //         payment_method_types: ["card"],
-    //       });
-    //       res.send({
-    //         clientSecret: paymentIntent.client_secret,
-    //       });
-    //     } else {
-    //       const paymentIntent = await stripe.paymentIntents.create({
-    //         amount: amount,
-    //         currency: "usd",
-    //         payment_method_types: ["card"],
-    //       });
 
-    //       res.send({
-    //         clientSecret: paymentIntent.client_secret,
-    //       });
-    //     }
-    //   }
-    // );
-
-    // save payments history in db
-    // app.post(
-    //   "/paymentsHistory",
-    //   verifyToken,
-    //   verifyMember,
-    //   async (req, res) => {
-    //     const history = req.body;
-    //     const resutl = await paymentsCollection.insertOne(history);
-    //     res.send(resutl);
-    //   }
-    // );
-
-    // get  payments history from db
-    // app.get(
-    //   "/paymentsHistory/:email",
-    //   verifyToken,
-    //   verifyMember,
-    //   async (req, res) => {
-    //     const email = req.params.email;
-    //     const query = { email: email };
-    //     const resutl = await paymentsCollection.find(query).toArray();
-    //     res.send(resutl);
-    //   }
-    // );
-
+  app.post("/payments", async(req,res)=>{
+    const paymentInfo = req.body;
+    const result = await paymentsCollection.insertOne(paymentInfo);
+    res.send(result)
+  })
+ 
     
 
     
