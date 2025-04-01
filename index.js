@@ -107,6 +107,29 @@ async function run() {
       }
     });
 
+    app.patch("/user", async(req,res)=>{
+      const email = req.query.email;
+      const name = req.body;
+      const query = {email: email}
+      
+      const updateDoc = {
+        $set: {
+          name: name.name,
+        },
+      };
+      const result = await usersCollection.updateOne(query,updateDoc);   
+      res.send(result);
+    })
+    
+    app.get("/user", async(req,res)=>{
+      const email = req.query.email;
+      const name = req.body;
+      const query = {email: email}
+      
+      const result = await usersCollection.findOne(query);   
+      res.send(result);
+    })
+
     
 
       
