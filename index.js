@@ -52,12 +52,11 @@ async function run() {
     const usersCollection = client.db("Donation").collection("usersCollection");
     const eventsCollection = client.db("Donation").collection("eventsCollection");
     const paymentsCollection = client.db("Donation").collection("paymentsCollection");
+    const eventParticipantsCollection = client.db("Donation").collection("eventParticipantsCollection");
+    const submittedEventsCollection = client.db("Donation").collection("submittedEventsCollection");
 
 
-    // payments details collection
-    // const paymentsCollection = client
-    //   .db("HSNTower")
-    //   .collection("paymentsCollection");
+   
 
 
     // verify admin middleware
@@ -153,6 +152,83 @@ async function run() {
         res.send(result)
     })
     
+    // get all available events data 
+    app.get("/availableEvents", async(req,res)=>{
+      const currentDate = new Date();
+        const result = await eventsCollection.find({date: { $gt: currentDate } }).toArray()
+        res.send(result)
+        
+    })
+
+    // join 
+    app.post("/join",async(req,res)=>{
+      const participantEmail = req?.query?.email;
+      const {event} = req?.body;
+      // console.log(event);
+      const filter = {_id: new ObjectId(event?._id)}
+      const eventId = event?._id;
+      const {_id, ...withoutId} = event;
+      const info = {...withoutId,eventId,participantEmail, status: "Ongoing",}
+
+      const find = await eventParticipantsCollection.findOne({eventId:eventId, participantEmail:participantEmail})
+      const updateDoc = {
+        $inc:{volunteers_needed: -1}
+      }
+      if (!find) {
+        const resul = await eventParticipantsCollection.insertOne(info)
+        await submittedEventsCollection.insertOne(info)
+        const result = await eventsCollection.updateOne(filter,updateDoc)
+        res.send(resul)
+        return;
+      }
+      res.send({acknowledged:false})
+      
+      
+      
+    })
+    
+    // join 
+    app.get("/join",async(req,res)=>{
+      const email = req.query.email;
+      console.log(email);
+      
+     
+      
+      const result = await eventParticipantsCollection.find({participantEmail: email}).toArray()
+      console.log(result);
+      
+      res.send(result)
+      
+    })
+    
+    app.get("/submittedEvent",async(req,res)=>{
+      const email = req.query.email;
+      console.log(email);
+
+      const result = await submittedEventsCollection.find({participantEmail: email}).toArray()
+      console.log(result);
+      
+      res.send(result)
+      
+    })
+    
+    app.post("/submittedEvent",async(req,res)=>{
+      const email = req.query.email;
+      const {event} = req.body;
+      console.log(email);
+      console.log(event);
+      const {status, ...withOutStatus} = event
+      const info = {...withOutStatus, status : "Pending"}
+      const result2 = await submittedEventsCollection.insertOne(info)
+      const result1 = await eventParticipantsCollection.deleteOne({participantEmail: event.participantEmail,eventId:event.eventId})
+      // const result = await eventParticipantsCollection.find({participantEmail: email}).toArray()
+      console.log("finded");
+      console.log(info);
+      
+      res.send(result2)
+      
+    })
+    
 
 
     // Stripe Payment API Route
@@ -177,6 +253,23 @@ app.post("/create-payment-intent", async (req, res) => {
     const paymentInfo = req.body;
     const result = await paymentsCollection.insertOne(paymentInfo);
     res.send(result)
+  })
+  
+  app.get("/payments", async(req,res)=>{
+    const email = req.query.email;
+    if (!email) {
+      const result = await paymentsCollection.find().toArray();
+      res.send(result)
+      // console.log(result);
+      
+    }else{
+      const query = {donorEmail:email}
+      const result = await paymentsCollection.find(query).toArray();
+      res.send(result)
+      // console.log(result);
+      
+    }
+    
   })
  
     
