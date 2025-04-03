@@ -424,6 +424,52 @@ async function run() {
     
     });
 
+    app.get("/analytics", async (req, res) => {
+      // const result = await eventParticipantsCollection.find().toArray();
+      const result = await eventParticipantsCollection.aggregate([{
+        $group:
+        {
+          _id:"$participantEmail", count: {$sum: 1}
+        }
+      }]).toArray()
+
+      const result2 = await paymentsCollection.aggregate([
+        {
+          $addFields: {
+            paymentDate: { $toDate: "$paymentTime" } // Unix timestamp থেকে Date এ কনভার্ট
+          }
+        },
+        {
+          $group: {
+            _id: { month: { $month: "$paymentDate" } }, // মাস অনুযায়ী গ্রুপিং
+            totalAmount: { $sum: "$amount" } // মোট পরিমাণ বের করা
+          }
+        },
+        {
+          $sort: { "_id.month": 1 } // জানুয়ারি থেকে ডিসেম্বর পর্যন্ত সাজানো
+        }
+      ]).toArray();
+
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+  
+      // JSON ফরম্যাটে সাজানো
+      const formattedData = Array.from({ length: 12 }, (_, i) => ({
+        month: monthNames[i],
+        amount: 0, // ডিফল্ট 0 রাখছি, যদি কোনো মাসে ডাটা না থাকে
+      }));
+  
+      // Aggregation থেকে পাওয়া ডেটা আপডেট করা
+      result2.forEach(({ _id, totalAmount }) => {
+        formattedData[_id.month - 1].amount = totalAmount;
+      });
+
+      res.send({volunteerActivities:result,payments:formattedData});
+      
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
