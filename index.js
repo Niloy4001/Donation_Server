@@ -152,6 +152,65 @@ async function run() {
         res.send(result)
     })
     
+    // post event data 
+    app.post("/event", async(req,res)=>{
+        const info = req.body
+        const result = await eventsCollection.insertOne(info)
+        res.send(result)
+    })
+    
+    // delete event data 
+    app.delete("/event", async(req,res)=>{
+      const id = req.query.id;
+      const query = {_id: new ObjectId(id)}
+      try {
+        
+        const result = await eventsCollection.deleteOne(query).
+        res.send({message: "Deleted successfull"})
+      } catch (error) {
+        res.send({message: "Deleted Unsuccessfull"})
+        
+      }
+    })
+    
+    
+    // update event data 
+    app.put("/event-update", async(req,res)=>{
+      const id = req.query.id;
+      const info = req.body;
+      const query = {_id: new ObjectId(id)}
+      const updateDoc = {
+        $set: {
+          title: info.title,
+          date: info.date,
+          type: info.type,
+          location: info.location,
+          volunteers_needed: info.volunteers_needed,
+        }
+      }
+     
+      const result = await eventsCollection.updateOne(query,updateDoc);     
+      res.send(result)
+      
+    })
+
+    // get single event data 
+    app.get("/event/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+  
+      try {
+          const result = await eventsCollection.findOne(query);
+          if (!result) {
+              return res.status(404).send({ message: "Event not found" });
+          }
+          res.send(result);
+      } catch (error) {
+          res.status(500).send({ message: "Internal Server Error", error });
+      }
+  });
+  
+    
     // get all available events data 
     app.get("/availableEvents", async(req,res)=>{
       const currentDate = new Date();
@@ -229,6 +288,15 @@ async function run() {
       
     })
     
+
+    // overview
+    app.get("/overview", async(req,res)=>{
+      const totalUsers = await usersCollection.countDocuments();
+      const totalEvents = await eventsCollection.countDocuments() ;
+      const totalDonations = await paymentsCollection.countDocuments() ;
+      
+      res.send({totalUsers,totalEvents,totalDonations})
+    })
 
 
     // Stripe Payment API Route
